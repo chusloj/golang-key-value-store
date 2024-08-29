@@ -97,8 +97,16 @@ func NewServer(listenAddress string) *Server {
 	return &Server{Storage: NewKVStore[int, *User](), listenAddress: listenAddress}
 }
 
+func (s *Server) handlePut(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("handlePut function checking in!"))
+}
+
 func (s *Server) Start() {
 	fmt.Printf("HTTP Server now running on port (%s)", s.listenAddress)
+
+	http.HandleFunc("/put", s.handlePut)
+
 	log.Fatal(http.ListenAndServe(s.listenAddress, nil))
 }
 
