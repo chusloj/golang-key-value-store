@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"sync"
+
+	"github.com/labstack/echo/v4"
 )
 
 type Storer[K comparable, V any] interface {
@@ -81,33 +82,48 @@ func (s *KVStore[K, V]) Delete(key K) (V, error) {
 
 }
 
-type User struct {
-	ID        int
-	FirstName string
-	Age       int
-	Gender    string
-}
-
 type Server struct {
-	Storage       Storer[int, *User]
+	Storage       Storer[string, string]
 	listenAddress string
 }
 
 func NewServer(listenAddress string) *Server {
-	return &Server{Storage: NewKVStore[int, *User](), listenAddress: listenAddress}
+	return &Server{Storage: NewKVStore[string, string](), listenAddress: listenAddress}
 }
 
-func (s *Server) handlePut(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("handlePut function checking in!"))
+func (s *Server) handlePut(c echo.Context) error {
+	key := c.Param("key")
+	value := c.Param("value")
+
+	s.Storage.Put(key, value)
+
+	return c.JSON(http.StatusOK, map[string]string{"msg": "ok"})
+}
+
+func (s *Server) handleGet(c echo.Context) error {
+	key := c.Param("key")
+
+	value, err := s.Storage.Get(key)
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"value": value})
 }
 
 func (s *Server) Start() {
 	fmt.Printf("HTTP Server now running on port (%s)", s.listenAddress)
 
-	http.HandleFunc("/put", s.handlePut)
+	e := echo.New()
 
-	log.Fatal(http.ListenAndServe(s.listenAddress, nil))
+	// labeled as a GET route so that testing can be done in the browser
+	e.GET("/put/:key/:value", s.handlePut)
+	e.GET("/get/:key", s.handleGet)
+
+	e.Start(s.listenAddress)
+
+	// http.HandleFunc("/put", s.handlePut)
+	// log.Fatal(http.ListenAndServe(s.listenAddress, nil))
 }
 
 func main() {
